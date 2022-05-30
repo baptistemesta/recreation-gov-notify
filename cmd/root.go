@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/inconshreveable/log15"
 	"github.com/kylechadha/recreation-gov-notify/notify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -45,6 +46,8 @@ func unmarshallConfig() *notify.Config {
 	if config.EmailFrom == "" {
 		config.EmailFrom = config.EmailTo
 	}
+	log15.New().Info("config", "config", config, "path", viper.ConfigFileUsed())
+
 	return config
 }
 
