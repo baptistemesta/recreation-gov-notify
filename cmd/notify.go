@@ -153,30 +153,6 @@ func runNotify(cfg *notify.Config) {
 	}
 
 	fmt.Printf("Now we're in business! Searching recreation.gov availability for %x campgrounds from %s to %s\n", len(campgrounds), checkInDate, checkOutDate)
-	availabilities, err := app.Poll(ctx, campgrounds, start, end)
-	if err != nil {
-		log.Error("There was an unrecoverable error", "err", err)
-		return
-	}
-	log.Info("Found availabilities", "availabilities", availabilities)
+	app.Poll(ctx, campgrounds, start, end)
 
-	// **
-	smsTo := cfg.SMSTo
-	emailTo := cfg.EmailTo
-
-	if smsTo != "" {
-		log.Info("Sending SMS", "to", smsTo)
-		err := app.SMSNotify(smsTo, "TODO", checkInDate, checkOutDate, availabilities)
-		if err != nil {
-			log.Error("Could not send SMS message", "err", err)
-		}
-	}
-	if emailTo != "" {
-		log.Info("Sending SMS", "to", smsTo)
-		err := app.EmailNotify(emailTo, "TODO", checkInDate, checkOutDate, availabilities)
-		if err != nil {
-			log.Error("Could not send SMS message", "err", err)
-		}
-	}
-	log.Info("Have a good trip!")
 }
