@@ -5,14 +5,22 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/inconshreveable/log15"
 	"github.com/kylechadha/recreation-gov-notify/notify"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"os"
+	"time"
 )
 
 var cfgFile string
+var campgroundIds string
+var dateFrom string
+var dateTo string
+var allowPartial bool
+var phone string
+var email string
+var pollingInterval string
+var debug bool
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -46,8 +54,30 @@ func unmarshallConfig() *notify.Config {
 	if config.EmailFrom == "" {
 		config.EmailFrom = config.EmailTo
 	}
-	log15.New().Info("config", "config", config, "path", viper.ConfigFileUsed())
-
+	if dateFrom != "" {
+		config.Availabilities.From = dateFrom
+	}
+	if dateTo != "" {
+		config.Availabilities.To = dateTo
+	}
+	if phone != "" {
+		config.SMSTo = phone
+	}
+	if email != "" {
+		config.EmailTo = email
+	}
+	if pollingInterval != "" {
+		config.PollInterval, _ = time.ParseDuration(pollingInterval)
+	}
+	if campgroundIds != "" {
+		config.Availabilities.CampgroundIDs = campgroundIds
+	}
+	if debug {
+		config.Debug = true
+	}
+	if allowPartial {
+		config.Availabilities.Partial = true
+	}
 	return config
 }
 
@@ -69,9 +99,14 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.rgn.yaml)")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	//rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	rootCmd.Flags().BoolVarP(&debug, "debug", "d", false, "activate debug logs")
+	rootCmd.Flags().StringVarP(&pollingInterval, "pollingInterval", "r", "", "polling interval, e.g. 30s")
+	rootCmd.Flags().StringVarP(&campgroundIds, "campgroundIds", "c", "", "Search a comma separated list of campgrounds")
+	rootCmd.Flags().StringVarP(&dateFrom, "dateFrom", "f", "", "date from, format MM-DD-YYYY")
+	rootCmd.Flags().StringVarP(&dateTo, "dateTo", "t", "", "date to, format MM-DD-YYYY")
+	rootCmd.Flags().BoolVar(&allowPartial, "allowPartial", false, "Allow to have a partial search")
+	rootCmd.Flags().StringVar(&phone, "phone", "", "Send notification to that sms number")
+	rootCmd.Flags().StringVar(&email, "email", "", "Send notification to that email")
 }
 
 // initConfig reads in config file and ENV variables if set.
