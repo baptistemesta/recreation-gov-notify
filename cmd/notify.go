@@ -32,7 +32,7 @@ func runNotify(cfg *notify.Config) {
 	app := notify.New(log, cfg)
 	reader := bufio.NewReader(os.Stdin)
 
-	var campground notify.Campground
+	var campgrounds []notify.Campground
 	if cfg.Availabilities.CampgroundIDs == "" {
 	Outer:
 		for {
@@ -79,14 +79,15 @@ func runNotify(cfg *notify.Config) {
 					continue Outer
 				}
 
-				campground = campgrounds[choice-1]
+				campgrounds = []notify.Campground{campgrounds[choice-1]}
 				break Outer
 			}
 		}
 	} else {
-		for _, campgroundId := range strings.Split(cfg.Availabilities.CampgroundIDs, ",") {
-			//take only one right now
-			campground = notify.Campground{
+		campgroundIds := strings.Split(cfg.Availabilities.CampgroundIDs, ",")
+		campgrounds = make([]notify.Campground, len(campgroundIds))
+		for i, campgroundId := range campgroundIds {
+			campgrounds[i] = notify.Campground{
 				EntityID: campgroundId,
 				Name:     campgroundId,
 			}
@@ -151,10 +152,10 @@ func runNotify(cfg *notify.Config) {
 		end, _ = time.Parse("01-02-2006", checkOutDate)
 	}
 
-	fmt.Printf("Now we're in business! Searching recreation.gov availability for %s from %s to %s\n", campground.Name, checkInDate, checkOutDate)
-	availabilities, err := app.Poll(ctx, campground.EntityID, start, end)
+	fmt.Printf("Now we're in business! Searching recreation.gov availability for %x campgrounds from %s to %s\n", len(campgrounds), checkInDate, checkOutDate)
+	availabilities, err := app.Poll(ctx, campgrounds, start, end)
 	if err != nil {
-		log.Error("There was an unrecoverable error: %w", err)
+		log.Error("There was an unrecoverable error", "err", err)
 		return
 	}
 	log.Info("Found availabilities", "availabilities", availabilities)
@@ -165,14 +166,14 @@ func runNotify(cfg *notify.Config) {
 
 	if smsTo != "" {
 		log.Info("Sending SMS", "to", smsTo)
-		err := app.SMSNotify(smsTo, campground.Name, checkInDate, checkOutDate, availabilities)
+		err := app.SMSNotify(smsTo, "TODO", checkInDate, checkOutDate, availabilities)
 		if err != nil {
 			log.Error("Could not send SMS message", "err", err)
 		}
 	}
 	if emailTo != "" {
 		log.Info("Sending SMS", "to", smsTo)
-		err := app.EmailNotify(emailTo, campground.Name, checkInDate, checkOutDate, availabilities)
+		err := app.EmailNotify(emailTo, "TODO", checkInDate, checkOutDate, availabilities)
 		if err != nil {
 			log.Error("Could not send SMS message", "err", err)
 		}
