@@ -87,78 +87,105 @@ func (a *App) executeSearch(campgrounds []Campground, start time.Time, end time.
 		start = initial
 
 		// Build availability map.
-		available := make(map[string]map[string]bool)
-		for _, m := range months {
-			campsites, err := a.client.Availability(campground.EntityID, m)
-			if err != nil {
-				return fmt.Errorf("Couldn't retrieve availabilities: %w", err)
-			}
-
-			a.log.Debug(fmt.Sprintf("Found %v day/campsites ", len(campsites)))
-			for _, c := range campsites {
-				for date, a := range c.Availabilities {
-					if a == "Available" {
-						if available[c.Site] == nil {
-							available[c.Site] = make(map[string]bool)
-						}
-
-						available[c.Site][date] = true
-					}
-				}
-			}
+		available, err := a.createAvailabilityMap(months, campground)
+		if err != nil {
+			return err
 		}
 
 		// Check for contiguous availability.
 		for site, dates := range available {
 			start = initial
-			var availableDates []string
-			var numberOfDays = 0
-			for !start.After(end) {
-				numberOfDays++
-				date := fmt.Sprintf("%sT00:00:00Z", start.Format("2006-01-02"))
-				a.log.Debug(fmt.Sprintf("Cheking if %s is available for %s", site, date))
-				if dates[date] {
-					a.log.Debug(fmt.Sprintf("%s is available for %s", site, date))
-					availableDates = append(availableDates, date)
-				}
-				start = start.AddDate(0, 0, 1)
+			availableDates, totalNumberOfDays := a.getAvailableDatesOfSite(start, end, site, dates)
+			if !a.cfg.Availabilities.Partial && len(availableDates) != totalNumberOfDays {
+				continue
 			}
-			if len(availableDates) > 0 {
-				if !a.cfg.Availabilities.Partial && len(availableDates) != numberOfDays {
-					continue
-				}
-				a.log.Debug(fmt.Sprintf("%s is available!", site))
-
-				newAvailability := Availability{
-					campground:   campground.Name,
-					campgroundId: campground.EntityID,
-					site:         site,
-					dates:        availableDates,
-				}
-				var contains = false
-				for _, availability := range a.availabilities {
-					if availability.campgroundId == newAvailability.campgroundId &&
-						availability.site == newAvailability.site {
-						contains = true
-					}
-				}
-				if !contains {
-					newAvailabilities = append(newAvailabilities, newAvailability)
-				}
-			}
+			newAvailabilities = a.retrieveNewlyAvailable(availableDates, site, campground, newAvailabilities)
 		}
 
 	}
 
 	if len(newAvailabilities) > 0 {
-		a.log.Info("Congrats, new available campsites were found for your dates!",
-			"availabilities", newAvailabilities)
+		var sites string
+		for _, newAvailability := range newAvailabilities {
+			sites += fmt.Sprintf("- %s (%v): Site %s available\n",
+				newAvailability.campground,
+				newAvailability.campgroundId,
+				newAvailability.site)
+		}
+		a.log.Info(fmt.Sprintf(`
+Good news the following sites are available:
+%s`, sites))
 		a.availabilities = append(a.availabilities, newAvailabilities...)
 		a.notify(newAvailabilities)
 	} else {
 		a.log.Info("Sorry, no new available campsites were found for your dates. We'll try again.")
 	}
 	return nil
+}
+
+func (a *App) retrieveNewlyAvailable(availableDates []string, site string, campground Campground, newAvailabilities []Availability) []Availability {
+	if len(availableDates) > 0 {
+		a.log.Debug(fmt.Sprintf("%s is available!", site))
+
+		newAvailability := Availability{
+			campground:   campground.Name,
+			campgroundId: campground.EntityID,
+			site:         site,
+			dates:        availableDates,
+		}
+		var contains = false
+		for _, availability := range a.availabilities {
+			if availability.campgroundId == newAvailability.campgroundId &&
+				availability.site == newAvailability.site {
+				contains = true
+			}
+		}
+		if !contains {
+			newAvailabilities = append(newAvailabilities, newAvailability)
+		}
+	}
+	return newAvailabilities
+}
+
+func (a *App) createAvailabilityMap(months []string, campground Campground) (map[string]map[string]bool, error) {
+	available := make(map[string]map[string]bool)
+	for _, m := range months {
+		campsites, err := a.client.Availability(campground.EntityID, m)
+		if err != nil {
+			return nil, fmt.Errorf("Couldn't retrieve availabilities: %w", err)
+		}
+
+		a.log.Debug(fmt.Sprintf("Found %v day/campsites ", len(campsites)))
+		for _, c := range campsites {
+			for date, a := range c.Availabilities {
+				if a == "Available" {
+					if available[c.Site] == nil {
+						available[c.Site] = make(map[string]bool)
+					}
+
+					available[c.Site][date] = true
+				}
+			}
+		}
+	}
+	a.log.Debug(fmt.Sprintf("Found %v sites available ", len(available)))
+	return available, nil
+}
+
+func (a *App) getAvailableDatesOfSite(start time.Time, end time.Time, site string, dates map[string]bool) ([]string, int) {
+	var availableDates []string
+	var numberOfDays = 0
+	for !start.After(end) {
+		numberOfDays++
+		date := fmt.Sprintf("%sT00:00:00Z", start.Format("2006-01-02"))
+		a.log.Debug(fmt.Sprintf("Cheking if %s is available for %s", site, date))
+		if dates[date] {
+			a.log.Debug(fmt.Sprintf("%s is available for %s", site, date))
+			availableDates = append(availableDates, date)
+		}
+		start = start.AddDate(0, 0, 1)
+	}
+	return availableDates, numberOfDays
 }
 
 func (a *App) notifyByEmail(toEmail string, newAvailabilities []Availability) error {

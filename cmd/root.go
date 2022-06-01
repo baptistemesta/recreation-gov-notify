@@ -48,12 +48,6 @@ func unmarshallConfig() *notify.Config {
 	if config.PollInterval == 0 {
 		config.PollInterval = 30 * 1000000000
 	}
-	if config.SMSFrom == "" {
-		config.SMSFrom = config.SMSTo
-	}
-	if config.EmailFrom == "" {
-		config.EmailFrom = config.EmailTo
-	}
 	if dateFrom != "" {
 		config.Availabilities.From = dateFrom
 	}
@@ -77,6 +71,12 @@ func unmarshallConfig() *notify.Config {
 	}
 	if allowPartial {
 		config.Availabilities.Partial = true
+	}
+	if config.SMSFrom == "" {
+		config.SMSFrom = config.SMSTo
+	}
+	if config.EmailFrom == "" {
+		config.EmailFrom = config.EmailTo
 	}
 	return config
 }
