@@ -30,7 +30,7 @@ type Availability struct {
 }
 
 type Notifier interface {
-	Notify(to string, campgroundName, checkInDate, checkOutDate string, available []string) error
+	Notify(to string, newAvailabilities []Availability) error
 }
 
 func New(log log15.Logger, cfg *Config) *App {
@@ -161,15 +161,8 @@ func (a *App) executeSearch(campgrounds []Campground, start time.Time, end time.
 	return nil
 }
 
-// TODO: This pattern feels a bit odd, but want to leave the notifiers decoupled
-// for testing and in case we want to poll/notify for multiple requests (ie: if
-// we add a webapp frontend or something).
-func (a *App) SMSNotify(toNumber string, campgroundName, checkInDate, checkOutDate string, available []string) error {
-	return a.smsNotifier.Notify(toNumber, campgroundName, checkInDate, checkOutDate, available)
-}
-
-func (a *App) EmailNotify(toEmail string, campgroundName, checkInDate, checkOutDate string, available []string) error {
-	return a.emailNotifier.Notify(toEmail, campgroundName, checkInDate, checkOutDate, available)
+func (a *App) notifyByEmail(toEmail string, newAvailabilities []Availability) error {
+	return a.emailNotifier.Notify(toEmail, newAvailabilities)
 }
 
 func (a *App) notify(newAvailabilities []Availability) {
@@ -178,17 +171,17 @@ func (a *App) notify(newAvailabilities []Availability) {
 
 	if smsTo != "" {
 		a.log.Info("Sending SMS", "to", smsTo)
-		//err := a.SMSNotify(smsTo, "TODO", newAvailabilities.ava, checkOutDate, availabilities)
-		//if err != nil {
-		//	a.log.Error("Could not send SMS message", "err", err)
-		//}
+		err := a.smsNotifier.Notify(smsTo, newAvailabilities)
+		if err != nil {
+			a.log.Error("Could not send SMS message", "err", err)
+		}
 	}
 	if emailTo != "" {
 		a.log.Info("Sending SMS", "to", smsTo)
-		//err := a.EmailNotify(emailTo, "TODO", checkInDate, checkOutDate, availabilities)
-		//if err != nil {
-		//	a.log.Error("Could not send SMS message", "err", err)
-		//}
+		err := a.emailNotifier.Notify(emailTo, newAvailabilities)
+		if err != nil {
+			a.log.Error("Could not send SMS message", "err", err)
+		}
 	}
 	a.log.Info("Have a good trip!")
 }

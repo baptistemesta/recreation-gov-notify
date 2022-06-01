@@ -25,18 +25,24 @@ func NewEmailNotifier(log log15.Logger, fromEmail string) *EmailNotifier {
 	}
 }
 
-func (n *EmailNotifier) Notify(to string, campgroundName, checkInDate, checkOutDate string, available []string) error {
+func (n *EmailNotifier) Notify(to string, newAvailabilities []Availability) error {
 	from := mail.NewEmail("Recreation.gov Notifier", n.fromEmail)
 	subject := "Good news! Your campground is available"
 	toAddr := mail.NewEmail(to, to)
 
+	var sites string
+	for _, newAvailability := range newAvailabilities {
+		sites += fmt.Sprintf("- %s (%v): Site %s available %s on dates %s\n",
+			newAvailability.campground,
+			newAvailability.campgroundId,
+			newAvailability.site,
+			strings.Join(newAvailability.dates, ", "))
+	}
 	content := fmt.Sprintf(`
-	'%s' has sites available from %s to %s!
+	New sites available!
 
 	Sites:
-	%s
-	
-	To reserve: <link goes here>`, campgroundName, checkInDate, checkOutDate, " - Site "+strings.Join(available, "\n - Site "))
+	%s`, sites)
 	plainTextContent := content
 	htmlContent := content
 	message := mail.NewSingleEmail(from, subject, toAddr, plainTextContent, htmlContent)
