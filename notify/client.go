@@ -41,6 +41,7 @@ func (c *Client) Do(path string, queryParams url.Values) (*http.Response, error)
 
 	// Need to spoof the user agent or CloudFront blocks us.
 	req.Header.Add("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36")
+	c.log.Debug("request is", "req", req)
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
@@ -95,6 +96,38 @@ func (c *Client) Search(query string) ([]Campground, error) {
 
 	sr.Campgrounds = sr.Campgrounds[:end]
 	return sr.Campgrounds, nil
+}
+
+type GetResponse struct {
+	Campgrounds []Campground `json:"results"`
+}
+
+//const getCampgroundEndpoint = "https://www.recreation.gov/api/search?fq=entity_type:campground&fq=entity_id:232890
+func (c *Client) getCampground(id string) (*Campground, error) {
+	c.log.Debug("Getting campground details", "id", id)
+
+	qp := url.Values{}
+	qp.Add("fq", "entity_type:campground")
+	qp.Add("fq", "entity_id:"+id)
+
+	resp, err := c.Do("/search", qp)
+	if err != nil {
+		return nil, fmt.Errorf("get request failed.", "err", err)
+	}
+	defer resp.Body.Close()
+
+	var sr GetResponse
+	err = json.NewDecoder(resp.Body).Decode(&sr)
+	if err != nil {
+		return nil, err
+	}
+
+	for i, c := range sr.Campgrounds {
+		if c.EntityType == "campground" {
+			return &sr.Campgrounds[i], nil
+		}
+	}
+	return nil, nil
 }
 
 const availEndpoint = "/camps/availability/campground/%s/month"

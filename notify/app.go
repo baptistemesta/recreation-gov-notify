@@ -46,6 +46,9 @@ func New(log log15.Logger, cfg *Config) *App {
 func (a *App) Search(query string) ([]Campground, error) {
 	return a.client.Search(query)
 }
+func (a *App) Get(campgroundId string) (*Campground, error) {
+	return a.client.getCampground(campgroundId)
+}
 
 // Poll is a blocking operation. To poll multiple campgrounds call this method
 // in its own goroutine.

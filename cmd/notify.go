@@ -32,6 +32,16 @@ func runNotify(cfg *notify.Config) {
 	app := notify.New(log, cfg)
 	reader := bufio.NewReader(os.Stdin)
 
+	campgrounds := getCampGrounds(cfg, reader, app)
+	checkInDate, start := getStart(cfg, reader)
+	checkOutDate, end := getEnd(cfg, reader, start)
+
+	fmt.Printf("Now we're in business! Searching recreation.gov availability for %x campgrounds from %s to %s\n", len(campgrounds), checkInDate, checkOutDate)
+	app.Poll(ctx, campgrounds, start, end)
+
+}
+
+func getCampGrounds(cfg *notify.Config, reader *bufio.Reader, app *notify.App) []notify.Campground {
 	var campgrounds []notify.Campground
 	if cfg.Availabilities.CampgroundIDs == "" {
 	Outer:
@@ -87,39 +97,24 @@ func runNotify(cfg *notify.Config) {
 		campgroundIds := strings.Split(cfg.Availabilities.CampgroundIDs, ",")
 		campgrounds = make([]notify.Campground, len(campgroundIds))
 		for i, campgroundId := range campgroundIds {
+			campground, err := app.Get(campgroundId)
+			if err != nil {
+				fmt.Printf("Sorry, there was an error, please try again.", "err", err)
+			}
 			campgrounds[i] = notify.Campground{
-				EntityID: campgroundId,
-				Name:     campgroundId,
+				EntityID: campground.EntityID,
+				Name:     campground.Name,
 			}
 		}
 	}
-
-	var checkInDate = cfg.Availabilities.From
-	var start time.Time
-	if checkInDate == "" {
-
-		for {
-			fmt.Println(`When's your check in? Please enter in "MM-DD-YYYY" format.`)
-
-			reader.Reset(os.Stdin)
-			input, err := reader.ReadString('\n')
-			if err != nil {
-				fmt.Printf("Sorry, there was an error, please try again. Error : %w\n", err)
-				continue
-			}
-			checkInDate = strings.Replace(input, "\n", "", -1) // Convert CRLF to LF.
-
-			start, err = time.Parse("01-02-2006", checkInDate)
-			if err != nil {
-				fmt.Println("Sorry I couldn't parse that date. please try again. Error : %w\n", err)
-				continue
-			}
-			break
-		}
-	} else {
-		start, _ = time.Parse("01-02-2006", checkInDate)
+	fmt.Println("Will search for campgrounds")
+	for _, campground := range campgrounds {
+		fmt.Println(fmt.Sprintf("- %v (%v)", campground.Name, campground.EntityID))
 	}
+	return campgrounds
+}
 
+func getEnd(cfg *notify.Config, reader *bufio.Reader, start time.Time) (string, time.Time) {
 	var checkOutDate = cfg.Availabilities.To
 	var end time.Time
 
@@ -151,8 +146,34 @@ func runNotify(cfg *notify.Config) {
 	} else {
 		end, _ = time.Parse("01-02-2006", checkOutDate)
 	}
+	return checkOutDate, end
+}
 
-	fmt.Printf("Now we're in business! Searching recreation.gov availability for %x campgrounds from %s to %s\n", len(campgrounds), checkInDate, checkOutDate)
-	app.Poll(ctx, campgrounds, start, end)
+func getStart(cfg *notify.Config, reader *bufio.Reader) (string, time.Time) {
+	var checkInDate = cfg.Availabilities.From
+	var start time.Time
+	if checkInDate == "" {
 
+		for {
+			fmt.Println(`When's your check in? Please enter in "MM-DD-YYYY" format.`)
+
+			reader.Reset(os.Stdin)
+			input, err := reader.ReadString('\n')
+			if err != nil {
+				fmt.Printf("Sorry, there was an error, please try again. Error : %w\n", err)
+				continue
+			}
+			checkInDate = strings.Replace(input, "\n", "", -1) // Convert CRLF to LF.
+
+			start, err = time.Parse("01-02-2006", checkInDate)
+			if err != nil {
+				fmt.Println("Sorry I couldn't parse that date. please try again. Error : %w\n", err)
+				continue
+			}
+			break
+		}
+	} else {
+		start, _ = time.Parse("01-02-2006", checkInDate)
+	}
+	return checkInDate, start
 }
