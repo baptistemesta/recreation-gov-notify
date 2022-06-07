@@ -18,6 +18,7 @@ var dateFrom string
 var dateTo string
 var allowPartial bool
 var phone string
+var phoneFrom string
 var email string
 var pollingInterval string
 var debug bool
@@ -56,6 +57,9 @@ func unmarshallConfig() *notify.Config {
 	}
 	if phone != "" {
 		config.SMSTo = phone
+	}
+	if phoneFrom != "" {
+		config.SMSFrom = phoneFrom
 	}
 	if email != "" {
 		config.EmailTo = email
@@ -106,6 +110,7 @@ func init() {
 	rootCmd.Flags().StringVarP(&dateTo, "dateTo", "t", "", "date to, format MM-DD-YYYY")
 	rootCmd.Flags().BoolVar(&allowPartial, "allowPartial", false, "Allow to have a partial search")
 	rootCmd.Flags().StringVar(&phone, "phone", "", "Send notification to that sms number")
+	rootCmd.Flags().StringVar(&phoneFrom, "phoneFrom", "", "Send notification from that sms number")
 	rootCmd.Flags().StringVar(&email, "email", "", "Send notification to that email")
 }
 
